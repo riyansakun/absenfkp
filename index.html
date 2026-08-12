@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Absensi PAKARMARU 2026</title>
+    <!-- Tailwind & FontAwesome CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        
+        /* CSS Reset & Pengamanan agar tidak blank di Blogger */
+        html, body { 
+            margin: 0 !important; padding: 0 !important; height: 100vh !important; 
+            font-family: 'Inter', sans-serif !important; background-color: #f3f4f6 !important; 
+            overflow: hidden !important; 
+        }
+        
+        /* Container utama memaksa tampil di atas semua elemen template Blogger */
+        #app-container { 
+            width: 100vw !important; 
+            height: 100vh !important; 
+            position: fixed !important; 
+            top: 0 !important; 
+            left: 0 !important; 
+            display: flex; 
+            flex-direction: column; 
+            background: #f3f4f6; 
+            z-index: 999999999 !important; 
+        }
+        
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+        .spinner { border: 4px solid rgba(0, 0, 0, 0.1); width: 40px; height: 40px; border-radius: 50%; border-left-color: #4f46e5; animation: spin 1s linear infinite; margin: 0 auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .toast-enter { transform: translateY(100%); opacity: 0; }
+        .toast-enter-active { transform: translateY(0); opacity: 1; transition: all 0.3s ease-out; }
+        .toast-leave { transform: translateY(0); opacity: 1; }
+        .toast-leave-active { transform: translateY(100%); opacity: 0; transition: all 0.3s ease-in; }
+    </style>
+</head>
+<body>
+<div id="app-container">
+
+    <!-- Toast Notification -->
+    <div id="toast-container" class="fixed bottom-5 left-1/2 transform -translate-x-1/2 z-[100] flex flex-col gap-2 pointer-events-none w-11/12 max-w-sm text-center"></div>
+
+    <!-- SCREEN: LOGIN -->
+    <div id="login-screen" class="flex-1 flex items-center justify-center p-4 bg-gradient-to-br from-blue-600 to-indigo-800 h-full w-full">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div class="bg-indigo-900 p-6 text-center text-white">
+                <i class="fas fa-graduation-cap text-5xl mb-2"></i>
+                <h1 class="text-2xl font-bold">PAKARMARU 2026</h1>
+                <p class="text-sm opacity-80">Sistem Presensi & E-Sertifikat</p>
+            </div>
+            <div class="p-8">
+                <form id="login-form" onsubmit="handleLogin(event)">
+                    <div class="mb-5">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">NIM / Username</label>
+                        <input type="text" id="login-nim" class="w-full px-4 py-3 rounded-lg border focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition" required placeholder="Contoh: admin / peserta">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">Password</label>
+                        <input type="password" id="login-pass" class="w-full px-4 py-3 rounded-lg border focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition" required placeholder="••••••••">
+                    </div>
+                    <button type="submit" id="btn-login" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition duration-200 flex justify-center items-center">
+                        <span>Masuk Aplikasi</span>
+                    </button>
+                    <div id="login-loading" class="hidden text-center mt-4">
+                        <div class="spinner border-2 border-l-indigo-600 w-6 h-6"></div>
+                        <p class="text-xs text-gray-500 mt-2">Memverifikasi ke Server...</p>
+                    </div>
+                </form>
+                <div class="mt-6 p-4 bg-yellow-50 rounded-lg text-xs text-yellow-800 border border-yellow-200 text-center">
+                    <p id="deploy-status" class="font-bold text-red-600 mb-1">Status: Menunggu Koneksi...</p>
+                    <b>Bantuan Login Default:</b><br>
+                    Admin: <b>admin / admin2026</b><br>
+                    Peserta Preview: <b>peserta / edudigital</b>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCREEN: ADMIN DASHBOARD -->
+    <div id="admin-dashboard" class="hidden flex-1 flex flex-col md:flex-row h-full overflow-hidden bg-gray-50 w-full">
+        <!-- Sidebar -->
+        <div class="w-full md:w-64 bg-indigo-900 text-white flex flex-col flex-shrink-0 shadow-lg z-20">
+            <div class="p-4 border-b border-indigo-800 flex justify-between items-center">
+                <div class="font-bold text-lg"><i class="fas fa-shield-alt mr-2"></i>Admin Panel</div>
+                <button onclick="logout()" class="md:hidden text-gray-300 hover:text-white p-2"><i class="fas fa-sign-out-alt"></i></button>
+            </div>
+            <div class="flex-1 overflow-y-auto hide-scroll flex md:flex-col flex-row overflow-x-auto">
+                <button onclick="switchAdminMenu('admin-home')" class="admin-tab flex-1 md:flex-none text-left px-4 py-4 bg-indigo-800 border-b-4 md:border-b-0 md:border-l-4 border-indigo-400 font-bold whitespace-nowrap text-sm"><i class="fas fa-home w-5"></i> <span class="hidden md:inline">Dashboard</span></button>
+                <button onclick="switchAdminMenu('admin-setting')" class="admin-tab flex-1 md:flex-none text-left px-4 py-4 text-indigo-200 hover:bg-indigo-800 border-b-4 md:border-b-0 md:border-l-4 border-transparent whitespace-nowrap text-sm"><i class="fas fa-calendar-check w-5"></i> <span class="hidden md:inline">Kelola Sesi</span></button>
+                <button onclick="switchAdminMenu('admin-peserta')" class="admin-tab flex-1 md:flex-none text-left px-4 py-4 text-indigo-200 hover:bg-indigo-800 border-b-4 md:border-b-0 md:border-l-4 border-transparent whitespace-nowrap text-sm"><i class="fas fa-users w-5"></i> <span class="hidden md:inline">Peserta</span></button>
+                <button onclick="switchAdminMenu('admin-rekap')" class="admin-tab flex-1 md:flex-none text-left px-4 py-4 text-indigo-200 hover:bg-indigo-800 border-b-4 md:border-b-0 md:border-l-4 border-transparent whitespace-nowrap text-sm"><i class="fas fa-table w-5"></i> <span class="hidden md:inline">Rekap</span></button>
+                <button onclick="switchAdminMenu('admin-sertifikat')" class="admin-tab flex-1 md:flex-none text-left px-4 py-4 text-indigo-200 hover:bg-indigo-800 border-b-4 md:border-b-0 md:border-l-4 border-transparent whitespace-nowrap text-sm"><i class="fas fa-certificate w-5"></i> <span class="hidden md:inline">Sertifikat</span></button>
+            </div>
+            <div class="p-4 border-t border-indigo-800 hidden md:block">
+                <button onclick="logout()" class="w-full bg-red-600 hover:bg-red-700 py-2 rounded text-sm font-bold transition"><i class="fas fa-sign-out-alt mr-2"></i> Keluar Aplikasi</button>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div class="flex-1 overflow-y-auto p-4 md:p-8 bg-gray-50 hide-scroll">
+            <!-- Home -->
+            <div id="admin-home" class="admin-section">
+                <h2 class="text-2xl font-bold mb-6 text-gray-800">Ringkasan Sistem</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex items-center gap-4">
+                        <div class="bg-blue-100 p-4 rounded-full text-blue-600"><i class="fas fa-users text-2xl"></i></div>
+                        <div><p class="text-gray-500 text-sm">Total Peserta</p><h3 class="text-2xl font-bold" id="stat-peserta">0</h3></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex items-center gap-4">
+                        <div class="bg-green-100 p-4 rounded-full text-green-600"><i class="fas fa-calendar-alt text-2xl"></i></div>
+                        <div><p class="text-gray-500 text-sm">Total Sesi Aktif</p><h3 class="text-2xl font-bold" id="stat-sesi">0</h3></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex items-center gap-4">
+                        <div class="bg-purple-100 p-4 rounded-full text-purple-600"><i class="fas fa-clipboard-check text-2xl"></i></div>
+                        <div><p class="text-gray-500 text-sm">Total Log Absen</p><h3 class="text-2xl font-bold" id="stat-logs">0</h3></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sesi -->
+            <div id="admin-setting" class="admin-section hidden">
+                <h2 class="text-2xl font-bold mb-4 border-b pb-2 text-gray-800">Manajemen Sesi Absensi</h2>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-1 bg-white p-5 rounded-xl shadow-sm border h-fit">
+                        <h3 class="font-bold text-gray-700 mb-4 border-b pb-2">Buat Sesi Baru</h3>
+                        <form id="form-tambah-sesi" onsubmit="tambahSesiBaru(event)">
+                            <div class="mb-3">
+                                <label class="block text-sm font-bold mb-1 text-gray-600">Nama Sesi</label>
+                                <input type="text" id="new-sesi-nama" class="w-full px-3 py-2 border rounded bg-gray-50" placeholder="Contoh: Hari 1 Pagi" required>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3 mb-3">
+                                <div><label class="block text-sm font-bold mb-1 text-gray-600">Tanggal</label><input type="date" id="new-sesi-tgl" class="w-full px-2 py-2 border rounded bg-gray-50" required></div>
+                                <div><label class="block text-sm font-bold mb-1 text-gray-600">Waktu</label><input type="time" id="new-sesi-waktu" class="w-full px-2 py-2 border rounded bg-gray-50" required></div>
+                            </div>
+                            <div class="mb-3 p-3 bg-indigo-50 border border-indigo-100 rounded">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="checkbox" id="new-sesi-gps" class="mr-2 w-4 h-4 text-indigo-600" onchange="toggleFormGps(this.checked)">
+                                    <span class="text-sm font-bold text-indigo-900">Wajib Lokasi GPS</span>
+                                </label>
+                            </div>
+                            <div id="form-gps-group" class="hidden space-y-3 p-3 bg-gray-50 border rounded mb-3">
+                                <div><label class="block text-xs font-bold text-gray-500">Target Latitude</label><input type="text" id="new-sesi-lat" class="w-full px-2 py-1 border rounded" placeholder="-6.200000"></div>
+                                <div><label class="block text-xs font-bold text-gray-500">Target Longitude</label><input type="text" id="new-sesi-lng" class="w-full px-2 py-1 border rounded" placeholder="106.816666"></div>
+                                <div><label class="block text-xs font-bold text-gray-500">Radius (Meter)</label><input type="number" id="new-sesi-rad" class="w-full px-2 py-1 border rounded" placeholder="50" value="50"></div>
+                            </div>
+                            <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded shadow hover:bg-indigo-700">Tambahkan Sesi</button>
+                        </form>
+                    </div>
+                    <div class="lg:col-span-2">
+                        <h3 class="font-bold text-gray-700 mb-4 border-b pb-2">Daftar Sesi Saat Ini</h3>
+                        <div class="grid grid-cols-1 gap-4" id="admin-sessions-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Peserta -->
+            <div id="admin-peserta" class="admin-section hidden">
+                <h2 class="text-2xl font-bold mb-4 border-b pb-2 text-gray-800">Kelola Data Peserta</h2>
+                <div class="bg-white p-5 rounded-xl shadow-sm border mb-6 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div>
+                        <h3 class="font-bold text-gray-700">Upload Data Massal (CSV)</h3>
+                        <p class="text-xs text-gray-500">Format Baris: NIM, Nama_Lengkap, Password</p>
+                    </div>
+                    <div class="flex gap-2 w-full md:w-auto">
+                        <input type="file" id="file-csv" accept=".csv" class="block w-full text-sm text-gray-500 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                        <button onclick="uploadCSV()" class="bg-indigo-600 text-white px-4 py-2 rounded font-bold shadow hover:bg-indigo-700 whitespace-nowrap"><i class="fas fa-upload"></i> Upload</button>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+                    <div class="overflow-x-auto max-h-96">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50 sticky top-0">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">NIM</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama Peserta</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200" id="table-users-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rekap -->
+            <div id="admin-rekap" class="admin-section hidden">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 border-b pb-2 gap-4">
+                    <h2 class="text-2xl font-bold text-gray-800">Data Log Absensi</h2>
+                    <div class="flex gap-2 w-full md:w-auto">
+                        <button onclick="downloadRekapCSV()" class="flex-1 bg-green-600 text-white px-4 py-2 rounded font-bold shadow hover:bg-green-700 text-sm whitespace-nowrap"><i class="fas fa-file-excel mr-1"></i> Export Matrix</button>
+                        <button onclick="loadAdminData()" class="bg-blue-100 text-blue-700 px-4 py-2 rounded font-bold hover:bg-blue-200 text-sm"><i class="fas fa-sync-alt"></i></button>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border overflow-hidden mt-4">
+                    <div class="overflow-x-auto max-h-96">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50 sticky top-0 shadow-sm">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Waktu</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">NIM</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sesi</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lokasi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200" id="table-rekap-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sertifikat -->
+            <div id="admin-sertifikat" class="admin-section hidden">
+                <h2 class="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">Pengaturan E-Sertifikat</h2>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div>
+                        <div class="bg-white p-5 rounded-xl shadow-sm border mb-6">
+                            <form onsubmit="updateSertifikat(event)">
+                                <h3 class="font-bold text-gray-700 mb-3">Background Sertifikat</h3>
+                                <input type="url" id="set-cert-url" class="w-full px-3 py-2 border rounded bg-gray-50 mb-3" placeholder="https://..." required>
+                                <button type="submit" class="w-full bg-yellow-500 text-white font-bold py-2 px-4 rounded shadow hover:bg-yellow-600">Simpan Background</button>
+                            </form>
+                        </div>
+                        <div class="bg-white p-5 rounded-xl shadow-sm border">
+                            <form onsubmit="simpanSyaratSertifikat(event)">
+                                <h3 class="font-bold text-gray-700 mb-2">Syarat Kelulusan Sesi</h3>
+                                <p class="text-xs text-gray-600 mb-3">Centang sesi yang wajib dihadiri:</p>
+                                <div id="cert-requirements-container" class="space-y-1 mb-4 bg-gray-50 p-3 border rounded"></div>
+                                <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded shadow hover:bg-indigo-700">Simpan Aturan</button>
+                            </form>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-gray-700 mb-3 border-b pb-2">Preview Hasil Sertifikat</h3>
+                        <div class="relative w-full aspect-[1.414/1] bg-gray-200 border border-gray-300 rounded overflow-hidden shadow">
+                            <div id="cert-preview-bg" class="absolute inset-0 bg-cover bg-center"></div>
+                            <div class="relative z-10 w-full text-center mt-[20%]">
+                                <h1 class="text-3xl md:text-4xl font-bold text-gray-800" style="font-family: serif;">Nama Mahasiswa</h1>
+                                <p class="text-lg md:text-xl text-gray-600 mt-2">NIM. 1234567890</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCREEN: MABA DASHBOARD -->
+    <div id="maba-dashboard" class="hidden flex-1 flex flex-col h-full overflow-hidden bg-gray-100 w-full">
+        <!-- Header -->
+        <div class="bg-indigo-600 text-white p-4 shadow-md z-10 flex justify-between items-center relative flex-shrink-0">
+            <div>
+                <h1 class="text-lg font-bold">Halo, <span id="maba-nama-header">Peserta</span>!</h1>
+                <p class="text-xs text-indigo-200" id="maba-nim-header"></p>
+            </div>
+            <button onclick="logout()" class="bg-indigo-800 hover:bg-indigo-900 p-2 rounded-full h-10 w-10 flex items-center justify-center"><i class="fas fa-sign-out-alt"></i></button>
+        </div>
+
+        <!-- Maba Tabs -->
+        <div class="bg-white border-b flex overflow-x-auto hide-scroll flex-shrink-0 shadow-sm z-10">
+            <button onclick="switchMabaMenu('maba-absen')" class="maba-tab flex-1 py-3 px-4 font-bold text-sm text-indigo-600 border-b-2 border-indigo-600 whitespace-nowrap"><i class="fas fa-fingerprint"></i> Absen</button>
+            <button onclick="switchMabaMenu('maba-riwayat')" class="maba-tab flex-1 py-3 px-4 font-bold text-sm text-gray-500 border-b-2 border-transparent whitespace-nowrap"><i class="fas fa-history"></i> Riwayat</button>
+            <button onclick="switchMabaMenu('maba-sertifikat')" class="maba-tab flex-1 py-3 px-4 font-bold text-sm text-gray-500 border-b-2 border-transparent whitespace-nowrap"><i class="fas fa-award"></i> Sertifikat</button>
+        </div>
+
+        <!-- Content -->
+        <div class="flex-1 overflow-y-auto p-4 hide-scroll relative">
+            
+            <div id="maba-absen" class="maba-section max-w-lg mx-auto">
+                <div class="text-center mb-6 mt-2">
+                    <h3 class="text-xl font-bold text-gray-800">Sesi Absensi Dibuka</h3>
+                    <p class="text-sm text-gray-500">Pilih sesi untuk merekam kehadiran.</p>
+                </div>
+                <div id="maba-sessions-container" class="grid grid-cols-1 gap-4"></div>
+                <div id="absen-loading" class="hidden mt-6 text-center bg-white p-8 rounded-2xl shadow border">
+                    <div class="spinner"></div>
+                    <p class="text-sm mt-4 text-indigo-800 font-bold" id="absen-loading-text">Memproses...</p>
+                </div>
+            </div>
+
+            <div id="maba-riwayat" class="maba-section hidden max-w-lg mx-auto">
+                <div class="bg-white rounded-xl shadow border overflow-hidden mt-2">
+                    <div class="bg-gray-50 px-4 py-3 border-b"><h3 class="font-bold text-gray-700">Riwayat Anda</h3></div>
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <tbody class="bg-white divide-y divide-gray-100" id="table-riwayat-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="maba-sertifikat" class="maba-section hidden max-w-2xl mx-auto">
+                <div class="bg-white p-6 rounded-xl shadow border text-center mt-2">
+                    <i class="fas fa-award text-5xl text-yellow-500 mb-4"></i>
+                    <h3 class="text-xl font-bold text-gray-800 mb-2">E-Sertifikat</h3>
+                    <p class="text-sm text-gray-600 mb-6" id="cert-status-text">Memeriksa syarat...</p>
+                    
+                    <div id="cert-preview-area" class="relative w-full aspect-[1.414/1] bg-gray-100 border rounded-lg overflow-hidden shadow hidden mx-auto mb-6">
+                        <div id="certificate-preview" class="absolute inset-0 bg-cover bg-center"></div>
+                        <div class="relative z-10 w-full text-center mt-[20%]">
+                            <h1 class="text-2xl md:text-3xl font-bold text-gray-800" style="font-family: serif;" id="maba-cert-nama">Nama</h1>
+                            <p class="text-sm md:text-md text-gray-600 mt-1" id="maba-cert-nim">NIM</p>
+                        </div>
+                    </div>
+                    <button id="btn-download-cert" onclick="downloadSertifikat()" class="hidden w-full bg-green-600 text-white font-bold py-3 rounded shadow hover:bg-green-700"><i class="fas fa-download mr-2"></i> Unduh JPG</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="canvas-sertifikat" class="hidden"></canvas>
+</div>
+
+<script>
+//<![CDATA[
+    /* ==========================================
+       KONFIGURASI UTAMA
+       ========================================== */
+    // 1. UBAH KE FALSE JIKA INGIN MENGGUNAKAN GOOGLE SHEETS
+    let IS_PREVIEW = false; // Ganti jadi false jika script GAS sudah jalan
+    
+    // 2. MASUKKAN URL WEB APP ANDA DI SINI
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxMgQADWmjV8f4d_D0TGkGLUn_Od6TOQl_ik7PONgjzWx72N_SoDKMNFC9tBQPDMhkxmA/exec"; 
+
+    // --- State Variabel ---
+    let currentUser = null;
+    let globalUsers = [], appSettings = { certUrl: "", syaratSesi: "" }, appSessions = [];
+    
+    // --- Data Dummy ---
+    let DUMMY_USERS = [
+        { nim: "admin", nama: "Super Admin", role: "admin", password: "admin2026" },
+        { nim: "peserta", nama: "Mahasiswa Teladan", role: "peserta", password: "edudigital" }
+    ];
+    let DUMMY_SESSIONS = [
+        { id: "s1", nama: "Hari 1 - Pembukaan", tanggal: "2026-08-10", waktu: "08:00", butuhGps: true, lat: -6.200000, lng: 106.816666, radius: 1000, status: "BUKA" },
+        { id: "s2", nama: "Hari 1 - Materi Sore", tanggal: "2026-08-10", waktu: "15:00", butuhGps: false, lat: 0, lng: 0, radius: 0, status: "TUTUP" }
+    ];
+    let DUMMY_LOGS = [];
+
+    // --- UI Init ---
+    function initApp() {
+        showScreen('login-screen');
+        const deployStatus = document.getElementById('deploy-status');
+        if(!IS_PREVIEW && (GAS_URL === "" || GAS_URL.includes("URL_WEB_APP"))) {
+            deployStatus.innerHTML = "⚠️ ERROR: URL GAS Belum Diisi!<br>Silakan masukkan URL Web App di kode HTML.";
+        } else {
+            deployStatus.innerText = IS_PREVIEW ? "Mode Preview (Data Dummy Aktif)" : "Mode Live (Terkoneksi Google Sheets)";
+            deployStatus.className = IS_PREVIEW ? "font-bold text-yellow-600 mb-1" : "font-bold text-green-600 mb-1";
+        }
+    }
+    
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initApp);
+    } else {
+        initApp();
+    }
+
+    function showScreen(screenId) {
+        ['login-screen', 'admin-dashboard', 'maba-dashboard'].forEach(id => {
+            document.getElementById(id).classList.add('hidden');
+            document.getElementById(id).classList.remove('flex');
+        });
+        document.getElementById(screenId).classList.remove('hidden');
+        document.getElementById(screenId).classList.add('flex');
+    }
+
+    function switchAdminMenu(menuId) {
+        document.querySelectorAll('.admin-section').forEach(el => el.classList.add('hidden'));
+        document.getElementById(menuId).classList.remove('hidden');
+        
+        document.querySelectorAll('.admin-tab').forEach(el => {
+            el.classList.remove('bg-indigo-800', 'border-l-4', 'border-indigo-400');
+            el.classList.add('text-indigo-200');
+        });
+        event.currentTarget.classList.remove('text-indigo-200');
+        event.currentTarget.classList.add('bg-indigo-800', 'border-l-4', 'border-indigo-400');
+    }
+
+    function switchMabaMenu(menuId) {
+        document.querySelectorAll('.maba-section').forEach(el => el.classList.add('hidden'));
+        document.getElementById(menuId).classList.remove('hidden');
+        
+        document.querySelectorAll('.maba-tab').forEach(el => {
+            el.classList.remove('text-indigo-600', 'border-b-2', 'border-indigo-600');
+            el.classList.add('text-gray-500', 'border-transparent');
+        });
+        event.currentTarget.classList.remove('text-gray-500', 'border-transparent');
+        event.currentTarget.classList.add('text-indigo-600', 'border-b-2', 'border-indigo-600');
+    }
+
+    function showToast(msg, isError = false) {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `px-4 py-3 rounded shadow-lg text-white text-sm font-bold toast-enter toast-enter-active ${isError ? 'bg-red-600' : 'bg-green-600'}`;
+        toast.innerHTML = `<i class="fas ${isError ? 'fa-exclamation-circle' : 'fa-check-circle'} mr-2"></i> ${msg}`;
+        container.appendChild(toast);
+        
+        setTimeout(() => toast.classList.remove('toast-enter', 'toast-enter-active'), 300);
+        setTimeout(() => { toast.classList.add('toast-leave-active'); setTimeout(() => toast.remove(), 300); }, 3000);
+    }
+
+    // --- API HELPER (Core Network Fix) ---
+    async function callBackend(payload) {
+        if(IS_PREVIEW) return simulateBackend(payload);
+        
+        try {
+            const response = await fetch(GAS_URL, {
+                method: 'POST',
+                redirect: "follow", // <-- SANGAT PENTING UNTUK GOOGLE APPS SCRIPT
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(payload)
+            });
+            if(!response.ok) throw new Error("Gagal merespon dari server");
+            return await response.json();
+        } catch (error) {
+            console.error(error);
+            showToast("Gagal menghubungi server. Periksa koneksi internet / URL GAS.", true);
+            return null;
+        }
+    }
+
+    async function callBackendGet(actionParam) {
+        if(IS_PREVIEW) return simulateBackendGet(actionParam);
+        
+        try {
+            const response = await fetch(`${GAS_URL}?action=${actionParam}`, { redirect: "follow" });
+            return await response.json();
+        } catch (error) {
+            showToast("Gagal memuat data dari server.", true);
+            return null;
+        }
+    }
+
+    // --- LOGIN ---
+    async function handleLogin(e) {
+        e.preventDefault();
+        const nim = document.getElementById('login-nim').value;
+        const pass = document.getElementById('login-pass').value;
+        
+        document.getElementById('btn-login').classList.add('hidden');
+        document.getElementById('login-loading').classList.remove('hidden');
+
+        const data = await callBackend({ action: "login", username: nim, password: pass });
+        
+        document.getElementById('btn-login').classList.remove('hidden');
+        document.getElementById('login-loading').classList.add('hidden');
+
+        if(data && data.status === 'success') {
+            currentUser = data.user;
+            showToast(`Selamat datang, ${currentUser.nama}`);
+            if(currentUser.role === 'admin') {
+                showScreen('admin-dashboard');
+                loadAdminData();
+            } else {
+                document.getElementById('maba-nama-header').innerText = currentUser.nama.split(" ")[0];
+                document.getElementById('maba-nim-header').innerText = currentUser.nim;
+                showScreen('maba-dashboard');
+                loadPesertaData();
+            }
+        } else if (data) {
+            showToast(data.message, true);
+        }
+    }
+
+    function logout() {
+        currentUser = null;
+        document.getElementById('login-form').reset();
+        showScreen('login-screen');
+    }
+
+    // --- ADMIN LOGIC ---
+    async function loadAdminData() {
+        showToast("Memuat data sistem...");
+        const data = await callBackendGet("getAdminData");
+        if(!data) return;
+        
+        appSettings = data.settings; appSessions = data.sessions;
+        renderAdminTable(data.logs); renderAdminSessions();
+        populateAdminSettings(appSettings);
+        
+        const userData = await callBackendGet("getUsers");
+        if(userData) { globalUsers = userData.users; renderUsersTable(globalUsers); }
+    }
+
+    function renderAdminTable(logs) {
+        document.getElementById('stat-logs').innerText = logs.length;
+        const tbody = document.getElementById('table-rekap-body');
+        tbody.innerHTML = '';
+        logs.forEach(log => {
+            const mapsLink = log.gps.includes('http') ? `<a href="${log.gps}" target="_blank" class="text-blue-600 underline">Buka Maps</a>` : log.gps;
+            tbody.innerHTML += `
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500">${log.waktu}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">${log.nim}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${log.nama}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-indigo-600 font-semibold">${log.sesi}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-xs">${mapsLink}</td>
+                </tr>`;
+        });
+    }
+
+    function renderUsersTable(users) {
+        document.getElementById('stat-peserta').innerText = users.filter(u => u.role === 'peserta').length;
+        const tbody = document.getElementById('table-users-body');
+        tbody.innerHTML = '';
+        users.forEach(u => {
+            tbody.innerHTML += `
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-bold">${u.nim}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${u.nama}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-xs">${u.role === 'admin' ? '<span class="bg-purple-100 text-purple-800 px-2 py-1 rounded">Admin</span>' : '<span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">Peserta</span>'}</td>
+                </tr>`;
+        });
+    }
+
+    function toggleFormGps(isChecked) {
+        const gpsGroup = document.getElementById('form-gps-group');
+        if(isChecked) gpsGroup.classList.remove('hidden'); else gpsGroup.classList.add('hidden');
+    }
+
+    function renderAdminSessions() {
+        const container = document.getElementById('admin-sessions-container');
+        const reqContainer = document.getElementById('cert-requirements-container');
+        container.innerHTML = ''; reqContainer.innerHTML = '';
+        
+        let aktifCount = 0;
+        let syaratArray = appSettings.syaratSesi ? appSettings.syaratSesi.split(",") : [];
+
+        appSessions.forEach(sesi => {
+            const isBuka = sesi.status === 'BUKA';
+            if(isBuka) aktifCount++;
+            
+            container.innerHTML += `
+                <div class="bg-white p-4 rounded-lg shadow-sm border ${isBuka ? 'border-l-4 border-l-green-500' : 'border-l-4 border-l-gray-300'} flex justify-between items-center">
+                    <div>
+                        <h4 class="font-bold text-gray-800">${sesi.nama}</h4>
+                        <p class="text-xs text-gray-500 mt-1">${sesi.tanggal} | ${sesi.waktu}</p>
+                        <p class="text-xs mt-1 font-semibold ${sesi.butuhGps ? 'text-indigo-600' : 'text-gray-500'}">
+                            ${sesi.butuhGps ? `GPS Ya (Lat:${sesi.lat}, Lng:${sesi.lng}, Rad:${sesi.radius}m)` : 'GPS Tidak'}
+                        </p>
+                    </div>
+                    <div class="text-right flex flex-col items-end">
+                        <span class="inline-block px-2 py-1 rounded text-[10px] font-bold mb-2 ${isBuka ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">${sesi.status}</span>
+                        <button onclick="ubahStatusSesi('${sesi.id}', ${!isBuka})" class="border text-xs px-3 py-1.5 rounded font-bold ${isBuka ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}">${isBuka ? 'Tutup' : 'Buka'}</button>
+                    </div>
+                </div>`;
+
+            const isChecked = syaratArray.includes(sesi.id) ? 'checked' : '';
+            reqContainer.innerHTML += `
+                <label class="flex items-center space-x-2 text-sm text-gray-700 cursor-pointer p-2 hover:bg-gray-100 rounded">
+                    <input type="checkbox" name="syarat_cert" value="${sesi.id}" ${isChecked} class="form-checkbox h-4 w-4 text-indigo-600 rounded">
+                    <span class="font-medium">${sesi.nama}</span>
+                </label>`;
+        });
+        document.getElementById('stat-sesi').innerText = aktifCount;
+    }
+
+    async function tambahSesiBaru(e) {
+        e.preventDefault();
+        const sesiData = {
+            nama: document.getElementById('new-sesi-nama').value,
+            tanggal: document.getElementById('new-sesi-tgl').value,
+            waktu: document.getElementById('new-sesi-waktu').value,
+            butuhGps: document.getElementById('new-sesi-gps').checked,
+            lat: parseFloat(document.getElementById('new-sesi-lat').value || 0),
+            lng: parseFloat(document.getElementById('new-sesi-lng').value || 0),
+            radius: parseInt(document.getElementById('new-sesi-rad').value || 50)
+        };
+        const res = await callBackend({ action: "addSession", session: sesiData });
+        if(res && res.status === 'success') { showToast("Sesi ditambahkan"); loadAdminData(); e.target.reset(); toggleFormGps(false); }
+    }
+
+    async function ubahStatusSesi(idSesi, statusBuka) {
+        const res = await callBackend({ action: "toggleSession", id_sesi: idSesi, statusBuka: statusBuka });
+        if(res) loadAdminData();
+    }
+
+    async function simpanSyaratSertifikat(e) {
+        e.preventDefault();
+        const checkboxes = document.querySelectorAll('input[name="syarat_cert"]:checked');
+        let selectedIds = Array.from(checkboxes).map(cb => cb.value).join(",");
+        const res = await callBackend({ action: "updateSyaratSertifikat", syarat_sesi: selectedIds });
+        if(res) { appSettings.syaratSesi = selectedIds; showToast("Syarat Sertifikat Disimpan."); }
+    }
+
+    function populateAdminSettings(settings) {
+        document.getElementById('set-cert-url').value = settings.certUrl || "https://img.freepik.com/free-vector/gradient-certificate-template_23-2148970724.jpg";
+        document.getElementById('cert-preview-bg').style.backgroundImage = `url('${document.getElementById('set-cert-url').value}')`;
+    }
+
+    async function updateSertifikat(e) {
+        e.preventDefault();
+        const url = document.getElementById('set-cert-url').value;
+        const res = await callBackend({ action: "updateSertifikat", certUrl: url });
+        if(res) { appSettings.certUrl = url; populateAdminSettings(appSettings); showToast("Desain Sertifikat Disimpan."); }
+    }
+
+    function downloadRekapCSV() {
+        showToast("Menyiapkan Matrix CSV...");
+        const currentLogs = Array.from(document.getElementById('table-rekap-body').children).map(tr => { return { nim: tr.children[1].innerText, sesi: tr.children[3].innerText }; });
+        let csv = "data:text/csv;charset=utf-8,NIM,Nama_Lengkap,";
+        appSessions.forEach(s => csv += `"${s.nama}",`); csv += "\r\n";
+
+        globalUsers.filter(u => u.role === 'peserta').forEach(p => {
+            csv += `"${p.nim}","${p.nama}",`;
+            appSessions.forEach(s => { csv += (currentLogs.some(log => log.nim == p.nim && log.sesi == s.nama) ? "Hadir," : "Tidak,"); });
+            csv += "\r\n";
+        });
+        const link = document.createElement("a"); link.href = encodeURI(csv); link.download = "Matrix_Absensi_PAKARMARU.csv";
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    }
+
+    function uploadCSV() {
+        const fileInput = document.getElementById('file-csv');
+        if(!fileInput.files.length) { showToast("Pilih file CSV dulu!", true); return; }
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            const arr = e.target.result.split('\n');
+            let users = [];
+            for(let i=1; i<arr.length; i++) {
+                let cols = arr[i].split(',');
+                if(cols.length >= 3) users.push({ nim: cols[0].trim().replace(/"/g,''), nama: cols[1].trim().replace(/"/g,''), password: cols[2].trim().replace(/"/g,''), role: 'peserta' });
+            }
+            if(users.length === 0) return showToast("File CSV kosong / salah format", true);
+            showToast(`Mengunggah ${users.length} peserta...`);
+            const res = await callBackend({ action: "uploadUsers", users: users });
+            if(res) { loadAdminData(); showToast("Data Berhasil Diupload"); fileInput.value = ""; }
+        };
+        reader.readAsText(fileInput.files[0]);
+    }
+
+    // --- MABA LOGIC ---
+    async function loadPesertaData() {
+        const data = await callBackendGet(`getPesertaData&nim=${currentUser.nim}`);
+        if(data) { appSettings = data.settings; appSessions = data.sessions; applyPesertaState(appSettings, data.logs || []); }
+    }
+
+    function applyPesertaState(settings, logs) {
+        const container = document.getElementById('maba-sessions-container');
+        container.innerHTML = ''; let hasOpenSession = false;
+
+        appSessions.forEach(sesi => {
+            if(sesi.status === 'BUKA') {
+                hasOpenSession = true;
+                if (logs.some(log => log.sesi === sesi.nama)) {
+                    container.innerHTML += `<div class="bg-green-50 p-6 rounded-xl border border-green-200 text-center"><h4 class="font-bold text-gray-800 text-lg mb-2">${sesi.nama}</h4><span class="bg-green-500 text-white px-4 py-1.5 rounded-full text-sm font-bold"><i class="fas fa-check-circle"></i> Hadir</span></div>`;
+                } else {
+                    const btnCall = `mulaiAbsenSesi('${sesi.nama}', ${sesi.butuhGps}, ${sesi.lat}, ${sesi.lng}, ${sesi.radius})`;
+                    container.innerHTML += `
+                        <div class="bg-white p-6 rounded-xl border shadow-sm text-center border-l-4 border-indigo-500">
+                            <h4 class="font-bold text-gray-800 text-lg mb-2">${sesi.nama}</h4>
+                            <p class="text-xs text-gray-500 mb-5">${sesi.butuhGps ? '<i class="fas fa-map-marker-alt text-red-500"></i> Butuh Validasi GPS' : '<i class="fas fa-wifi text-green-500"></i> Tanpa Validasi Lokasi'}</p>
+                            <button onclick="${btnCall}" class="bg-indigo-600 text-white font-bold py-3 px-6 rounded-full w-full shadow"><i class="fas fa-fingerprint"></i> Rekam Kehadiran</button>
+                        </div>`;
+                }
+            }
+        });
+        if (!hasOpenSession) container.innerHTML = `<div class="p-8 text-center text-gray-500 bg-gray-50 rounded-xl border border-dashed"><i class="fas fa-bed text-3xl mb-2"></i><p>Belum ada sesi yang dibuka.</p></div>`;
+
+        const tbody = document.getElementById('table-riwayat-body');
+        tbody.innerHTML = '';
+        if(logs.length === 0) tbody.innerHTML = `<tr><td class="px-4 py-4 text-center text-sm text-gray-500">Belum ada riwayat.</td></tr>`;
+        else logs.forEach(log => { tbody.innerHTML += `<tr><td class="px-4 py-3 text-xs text-gray-500">${log.waktu}</td><td class="px-4 py-3 text-sm font-bold text-indigo-700">${log.sesi}</td></tr>`; });
+
+        document.getElementById('certificate-preview').style.backgroundImage = `url('${settings.certUrl || 'https://img.freepik.com/free-vector/gradient-certificate-template_23-2148970724.jpg'}')`;
+        document.getElementById('maba-cert-nama').innerText = currentUser.nama;
+        document.getElementById('maba-cert-nim').innerText = "NIM. " + currentUser.nim;
+
+        let syaratArray = settings.syaratSesi ? settings.syaratSesi.split(",") : [];
+        let penuhiSyarat = true;
+
+        if (syaratArray.length > 0 && syaratArray[0] !== "") {
+            for(let idSyarat of syaratArray) {
+                let sesiTarget = appSessions.find(s => s.id === idSyarat);
+                if (sesiTarget && !logs.some(log => log.sesi === sesiTarget.nama)) { penuhiSyarat = false; break; }
+            }
+        } else { if(logs.length === 0) penuhiSyarat = false; }
+
+        if(penuhiSyarat) {
+            document.getElementById('cert-status-text').innerHTML = "<span class='text-green-600 font-bold'>Syarat Kehadiran Terpenuhi</span>";
+            document.getElementById('cert-preview-area').classList.remove('hidden');
+            document.getElementById('btn-download-cert').classList.remove('hidden');
+        } else {
+            document.getElementById('cert-status-text').innerHTML = "<span class='text-red-500'>Belum memenuhi syarat wajib kehadiran sesi.</span>";
+            document.getElementById('cert-preview-area').classList.add('hidden');
+            document.getElementById('btn-download-cert').classList.add('hidden');
+        }
+    }
+
+    function mulaiAbsenSesi(namaSesi, butuhGps, latTarget, lngTarget, radiusTarget) {
+        document.getElementById('maba-sessions-container').classList.add('hidden');
+        document.getElementById('absen-loading').classList.remove('hidden');
+        
+        if (!butuhGps) return kirimDataAbsen(namaSesi, 0, 0, "Tanpa Validasi GPS");
+
+        document.getElementById('absen-loading-text').innerText = "Mencari Lokasi GPS... Pastikan izin lokasi aktif.";
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                pos => {
+                    const lat = pos.coords.latitude; const lng = pos.coords.longitude;
+                    const R = 6371e3; const f1 = lat * Math.PI/180; const f2 = latTarget * Math.PI/180;
+                    const df = (latTarget - lat) * Math.PI/180; const dl = (lngTarget - lng) * Math.PI/180;
+                    const a = Math.sin(df/2) * Math.sin(df/2) + Math.cos(f1) * Math.cos(f2) * Math.sin(dl/2) * Math.sin(dl/2);
+                    const distance = R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+
+                    if (distance > radiusTarget) return batalAbsen(`Di luar area! Jarak Anda ${Math.round(distance)}m dari target (Max: ${radiusTarget}m).`);
+                    kirimDataAbsen(namaSesi, lat, lng, `https://www.google.com/maps?q=${lat},${lng}`);
+                },
+                err => { batalAbsen("Gagal mendapatkan lokasi GPS. Mohon izinkan lokasi di Browser Anda."); },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
+        } else { batalAbsen("Browser tidak mendukung GPS."); }
+    }
+
+    function batalAbsen(msg) {
+        document.getElementById('maba-sessions-container').classList.remove('hidden');
+        document.getElementById('absen-loading').classList.add('hidden');
+        showToast(msg, true);
+    }
+
+    async function kirimDataAbsen(namaSesi, lat, lng, mapsLink) {
+        document.getElementById('absen-loading-text').innerText = "Menyimpan data...";
+        const res = await callBackend({ action: "submitAbsen", nim: currentUser.nim, nama: currentUser.nama, sesi: namaSesi, lat: lat, lng: lng, mapsLink: mapsLink });
+        
+        document.getElementById('maba-sessions-container').classList.remove('hidden');
+        document.getElementById('absen-loading').classList.add('hidden');
+        
+        if(res && res.status === 'success') { showToast(`Berhasil Absen: ${namaSesi}`); loadPesertaData(); } 
+        else if (res) { showToast(res.message, true); }
+    }
+
+    function downloadSertifikat() {
+        showToast("Membuat Sertifikat...");
+        const canvas = document.getElementById('canvas-sertifikat');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 1748; canvas.height = 1240; 
+        
+        const img = new Image(); img.crossOrigin = "Anonymous";
+        img.onload = () => {
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            ctx.textAlign = "center"; ctx.fillStyle = "#333333"; ctx.font = "bold 90px serif";
+            ctx.fillText(currentUser.nama, canvas.width / 2, canvas.height * 0.55);
+            ctx.fillStyle = "#555555"; ctx.font = "40px sans-serif";
+            ctx.fillText("NIM. " + currentUser.nim, canvas.width / 2, canvas.height * 0.62);
+
+            const link = document.createElement('a');
+            link.download = `Sertifikat_${currentUser.nim}.jpg`;
+            link.href = canvas.toDataURL('image/jpeg', 0.9); link.click();
+        };
+        img.onerror = () => { showToast("Gagal render. URL Gambar diblokir CORS.", true); };
+        img.src = appSettings.certUrl || "https://img.freepik.com/free-vector/gradient-certificate-template_23-2148970724.jpg";
+    }
+
+    // --- DUMMY DATA LOGIC FOR IS_PREVIEW ---
+    function simulateBackend(payload) {
+        return new Promise(resolve => {
+            setTimeout(() => {
+                if(payload.action === 'login') {
+                    const u = DUMMY_USERS.find(x => x.nim === payload.username && x.password === payload.password);
+                    resolve(u ? { status: 'success', user: u } : { status: 'error', message: 'NIM/Password Salah' });
+                }
+                else if(payload.action === 'addSession') { payload.session.id = 's'+Date.now(); payload.session.status='TUTUP'; DUMMY_SESSIONS.push(payload.session); resolve({status:'success'}); }
+                else if(payload.action === 'toggleSession') { DUMMY_SESSIONS.find(x=>x.id===payload.id_sesi).status = payload.statusBuka ? 'BUKA' : 'TUTUP'; resolve({status:'success'}); }
+                else if(payload.action === 'submitAbsen') { DUMMY_LOGS.push({waktu: new Date().toLocaleString(), nim: payload.nim, nama: payload.nama, sesi: payload.sesi, gps: payload.mapsLink}); resolve({status:'success'}); }
+                else resolve({status: 'success'});
+            }, 800);
+        });
+    }
+    function simulateBackendGet(actionParam) {
+        return new Promise(resolve => {
+            setTimeout(() => {
+                if(actionParam === 'getAdminData') resolve({ settings: appSettings, logs: DUMMY_LOGS, sessions: DUMMY_SESSIONS });
+                else if(actionParam === 'getUsers') resolve({ users: DUMMY_USERS });
+                else if(actionParam.includes('getPesertaData')) {
+                    const nim = actionParam.split('=')[1];
+                    resolve({ settings: appSettings, logs: DUMMY_LOGS.filter(x=>x.nim===nim), sessions: DUMMY_SESSIONS });
+                }
+            }, 800);
+        });
+    }
+//]]>
+</script>
+</body>
+</html>
