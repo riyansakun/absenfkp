@@ -72,12 +72,7 @@
                         <p class="text-xs text-gray-500 mt-2">Memverifikasi ke Server...</p>
                     </div>
                 </form>
-                <div class="mt-6 p-4 bg-yellow-50 rounded-lg text-xs text-yellow-800 border border-yellow-200 text-center">
-                    <p id="deploy-status" class="font-bold text-red-600 mb-1">Status: Menunggu Koneksi...</p>
-                    <b>Bantuan Login Default:</b><br>
-                    Admin: <b>admin / admin2026</b><br>
-                    Peserta Preview: <b>peserta / edudigital</b>
-                </div>
+                
             </div>
         </div>
     </div>
@@ -344,13 +339,6 @@
     // --- UI Init ---
     function initApp() {
         showScreen('login-screen');
-        const deployStatus = document.getElementById('deploy-status');
-        if(!IS_PREVIEW && (GAS_URL === "" || GAS_URL.includes("URL_WEB_APP"))) {
-            deployStatus.innerHTML = "⚠️ ERROR: URL GAS Belum Diisi!<br>Silakan masukkan URL Web App di kode HTML.";
-        } else {
-            deployStatus.innerText = IS_PREVIEW ? "Mode Preview (Data Dummy Aktif)" : "Mode Live (Terkoneksi Google Sheets)";
-            deployStatus.className = IS_PREVIEW ? "font-bold text-yellow-600 mb-1" : "font-bold text-green-600 mb-1";
-        }
     }
     
     if (document.readyState === 'loading') {
