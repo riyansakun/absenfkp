@@ -452,7 +452,7 @@
     // --- API HELPER (Supabase) ---
     // Kolom di tabel memakai snake_case (butuh_gps); di alias saat select
     // agar kode lain tetap membaca sesi.butuhGps, sesi.lat, dsb.
-    const SESI_SELECT = 'id, nama, tanggal, waktu, butuh_gps:butuhGps, lat, lng, radius, status';
+    const SESI_SELECT = 'id, nama, tanggal, waktu, butuhGps:butuh_gps, lat, lng, radius, status';
 
     function formatWaktu(value) {
         if(!value) return '';
