@@ -329,7 +329,7 @@
 
     // --- Inisialisasi Supabase Client ---
     const supabaseReady = SUPABASE_URL.startsWith('http') && !SUPABASE_ANON_KEY.startsWith('__');
-    const supabase = supabaseReady && window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+    const sb = supabaseReady && window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
     function setLoginStatus(msg, isError = false) {
         const el = document.getElementById('login-status');
@@ -347,7 +347,7 @@
         if (IS_PREVIEW) { setLoginStatus('Mode Preview: Data Dummy aktif. Login: admin/admin2026', false); return; }
         if (!supabaseReady) { setLoginStatus('Supabase BELUM dikonfigurasi. Cek env SUPABASE_URL & SUPABASE_ANON_KEY.', true); return; }
         if (!window.supabase) { setLoginStatus('Library supabase.js gagal dimuat dari CDN.', true); return; }
-        supabase.from('users').select('nim', { count: 'exact', head: true })
+        sb.from('users').select('nim', { count: 'exact', head: true })
             .then(({ count, error }) => {
                 if (error) throw error;
                 setLoginStatus(`Supabase terkoneksi. ${count} user tersedia.`, false);
@@ -456,7 +456,7 @@
         try {
             switch (payload.action) {
                 case "login": {
-                    const { data, error } = await supabase
+                    const { data, error } = await sb
                         .from('users')
                         .select('*')
                         .eq('nim', payload.username)
@@ -468,7 +468,7 @@
                 }
                 case "addSession": {
                     const s = payload.session;
-                    const { error } = await supabase.from('sessions').insert([{
+                    const { error } = await sb.from('sessions').insert([{
                         id: 's' + Date.now(),
                         nama: s.nama,
                         tanggal: s.tanggal,
@@ -483,7 +483,7 @@
                     return { status: 'success' };
                 }
                 case "toggleSession": {
-                    const { error } = await supabase
+                    const { error } = await sb
                         .from('sessions')
                         .update({ status: payload.statusBuka ? 'BUKA' : 'TUTUP' })
                         .eq('id', payload.id_sesi);
@@ -491,14 +491,14 @@
                     return { status: 'success' };
                 }
                 case "updateSyaratSertifikat": {
-                    const { error } = await supabase
+                    const { error } = await sb
                         .from('app_settings')
                         .upsert({ key: 'syarat_sesi', value: payload.syarat_sesi });
                     if (error) throw error;
                     return { status: 'success' };
                 }
                 case "updateSertifikat": {
-                    const { error } = await supabase
+                    const { error } = await sb
                         .from('app_settings')
                         .upsert({ key: 'cert_url', value: payload.certUrl });
                     if (error) throw error;
@@ -506,12 +506,12 @@
                 }
                 case "uploadUsers": {
                     const rows = payload.users.map(u => ({ nim: u.nim, nama: u.nama, password: u.password, role: 'peserta' }));
-                    const { error } = await supabase.from('users').upsert(rows);
+                    const { error } = await sb.from('users').upsert(rows);
                     if (error) throw error;
                     return { status: 'success' };
                 }
                 case "submitAbsen": {
-                    const { error } = await supabase
+                    const { error } = await sb
                         .from('absen_logs')
                         .insert([{ nim: payload.nim, nama: payload.nama, sesi: payload.sesi, gps: payload.mapsLink }]);
                     if (error) throw error;
@@ -533,9 +533,9 @@
         try {
             if (actionParam === 'getAdminData') {
                 const [settingsRes, logsRes, sessionsRes] = await Promise.all([
-                    supabase.from('app_settings').select('*'),
-                    supabase.from('absen_logs').select('*').order('waktu', { ascending: false }),
-                    supabase.from('sessions').select(SESI_SELECT).order('created_at', { ascending: false })
+                    sb.from('app_settings').select('*'),
+                    sb.from('absen_logs').select('*').order('waktu', { ascending: false }),
+                    sb.from('sessions').select(SESI_SELECT).order('created_at', { ascending: false })
                 ]);
                 if (settingsRes.error) throw settingsRes.error;
                 if (logsRes.error) throw logsRes.error;
@@ -543,16 +543,16 @@
                 return { settings: settingsFromRows(settingsRes.data), logs: logsRes.data || [], sessions: sessionsRes.data || [] };
             }
             else if (actionParam === 'getUsers') {
-                const { data, error } = await supabase.from('users').select('*').order('nim');
+                const { data, error } = await sb.from('users').select('*').order('nim');
                 if (error) throw error;
                 return { users: data || [] };
             }
             else if (actionParam.includes('getPesertaData')) {
                 const nim = actionParam.split('=')[1];
                 const [settingsRes, logsRes, sessionsRes] = await Promise.all([
-                    supabase.from('app_settings').select('*'),
-                    supabase.from('absen_logs').select('*').eq('nim', nim).order('waktu', { ascending: false }),
-                    supabase.from('sessions').select(SESI_SELECT).order('created_at', { ascending: false })
+                    sb.from('app_settings').select('*'),
+                    sb.from('absen_logs').select('*').eq('nim', nim).order('waktu', { ascending: false }),
+                    sb.from('sessions').select(SESI_SELECT).order('created_at', { ascending: false })
                 ]);
                 if (settingsRes.error) throw settingsRes.error;
                 if (logsRes.error) throw logsRes.error;
