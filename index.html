@@ -197,6 +197,7 @@
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">NIM</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama Peserta</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200" id="table-users-body"></tbody>
@@ -663,13 +664,27 @@
         const tbody = document.getElementById('table-users-body');
         tbody.innerHTML = '';
         users.forEach(u => {
+            const isAdmin = u.role === 'admin';
             tbody.innerHTML += `
                 <tr>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-bold">${u.nim}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${u.nama}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-xs">${u.role === 'admin' ? '<span class="bg-purple-100 text-purple-800 px-2 py-1 rounded">Admin</span>' : '<span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">Peserta</span>'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-xs">${isAdmin ? '<span class="bg-purple-100 text-purple-800 px-2 py-1 rounded">Admin</span>' : '<span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">Peserta</span>'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-xs">${isAdmin ? '<span class="text-gray-300 text-xs">—</span>' : `<button onclick="hapusPeserta('${u.nim}')" class="bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded font-bold hover:bg-red-100"><i class="fas fa-trash-alt"></i> Hapus</button>`}</td>
                 </tr>`;
         });
+    }
+
+    async function hapusPeserta(nim) {
+        if(!confirm(`Hapus peserta ${nim}? Data absensinya juga ikut terhapus.`)) return;
+        showToast("Menghapus peserta...");
+        const [userRes, logRes] = await Promise.all([
+            sb.from('users').delete().eq('nim', nim),
+            sb.from('absen_logs').delete().eq('nim', nim)
+        ]);
+        if(userRes.error) { console.error(userRes.error); showToast("Gagal menghapus peserta: " + (userRes.error.message || userRes.error), true); return; }
+        showToast("Peserta berhasil dihapus");
+        loadAdminData();
     }
 
     function toggleFormGps(isChecked) {
