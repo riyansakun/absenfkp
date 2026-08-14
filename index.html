@@ -72,6 +72,7 @@
                         <div class="spinner border-2 border-l-indigo-600 w-6 h-6"></div>
                         <p class="text-xs text-gray-500 mt-2">Memverifikasi ke Server...</p>
                     </div>
+                    <div id="login-status" class="hidden mt-4 p-3 rounded-lg text-xs font-bold text-center"></div>
                 </form>
                 
             </div>
@@ -328,7 +329,34 @@
 
     // --- Inisialisasi Supabase Client ---
     const supabaseReady = SUPABASE_URL.startsWith('http') && !SUPABASE_ANON_KEY.startsWith('__');
-    const supabase = supabaseReady ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+    const supabase = supabaseReady && window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+    function setLoginStatus(msg, isError = false) {
+        const el = document.getElementById('login-status');
+        if(!el) return;
+        el.classList.remove('hidden');
+        el.className = `mt-4 p-3 rounded-lg text-xs font-bold text-center ${isError ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`;
+        el.innerHTML = msg;
+        console.log('[login-status]', msg);
+    }
+
+    // Tampilkan status backend saat halaman login dibuka (debuggin login)
+    function checkBackendStatus() {
+        const el = document.getElementById('login-status');
+        if(!el) return;
+        if (IS_PREVIEW) { setLoginStatus('Mode Preview: Data Dummy aktif. Login: admin/admin2026', false); return; }
+        if (!supabaseReady) { setLoginStatus('Supabase BELUM dikonfigurasi. Cek env SUPABASE_URL & SUPABASE_ANON_KEY.', true); return; }
+        if (!window.supabase) { setLoginStatus('Library supabase.js gagal dimuat dari CDN.', true); return; }
+        supabase.from('users').select('nim', { count: 'exact', head: true })
+            .then(({ count, error }) => {
+                if (error) throw error;
+                setLoginStatus(`Supabase terkoneksi. ${count} user tersedia.`, false);
+            })
+            .catch(err => {
+                console.error('[checkBackendStatus]', err);
+                setLoginStatus('Supabase error: ' + (err.message || err).slice(0, 120), true);
+            });
+    }
 
     // --- State Variabel ---
     let currentUser = null;
@@ -348,6 +376,7 @@
     // --- UI Init ---
     function initApp() {
         showScreen('login-screen');
+        checkBackendStatus();
     }
     
     if (document.readyState === 'loading') {
@@ -566,6 +595,9 @@
             }
         } else if (data) {
             showToast(data.message, true);
+        } else {
+            // callBackend mengembalikan null = error koneksi / exception
+            setLoginStatus('Terjadi error saat login. Buka Console (F12) & cek pesan merah.', true);
         }
     }
 
